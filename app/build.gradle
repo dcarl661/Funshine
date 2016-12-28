@@ -5,8 +5,9 @@ android {
     buildToolsVersion "23.0.1"
     defaultConfig {
         applicationId "com.dcarl661.funshine"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 24
+        multiDexEnabled true
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
