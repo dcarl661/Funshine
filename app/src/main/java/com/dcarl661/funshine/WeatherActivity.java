@@ -1,8 +1,10 @@
 package com.dcarl661.funshine;
 
 import android.*;
+import android.Manifest;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -19,6 +21,10 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.dcarl661.funshine.Model.DailyWeatherReport;
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.drive.Drive;
@@ -26,13 +32,17 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
 
 
 //dcarl@earthlink.net 32209da56515c44506d4fffa54ac4ac1
+//public class WeatherActivity extends AppCompatActivity implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks, LocationListener
 public class WeatherActivity extends AppCompatActivity
-implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
-            LocationListener
+        implements GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks, LocationListener
 {
 
     final int PERMISSION_FINE_LOCATION = 1;
@@ -45,19 +55,21 @@ implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.Connecti
     final String URL_KEY   = "&APPID=32209da56515c44506d4fffa54ac4ac1";
 
     private GoogleApiClient mGoogleApiClient;
+    private ArrayList<DailyWeatherReport> weatherReportList=new ArrayList<>();
 
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_weather);
 
+        // ATTENTION: This "addApi(AppIndex.API)"was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
                 .enableAutoManage(this, this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
-                .build();
+                .addApi(AppIndex.API).build();
 
         downloadWeatherData(35.033595, -85.297851, 10);
 
@@ -100,8 +112,38 @@ implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.Connecti
                 (Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
 
                     @Override
-                    public void onResponse(JSONObject response) {
+                    public void onResponse(JSONObject response)
+                    {
                         Log.v("Fun", "Res: "+ response.toString());
+                        try
+                        {
+                            JSONObject city = response.getJSONObject("city");
+                            String cityName = city.getString("name");
+                            String country  = city.getString("country");
+                            JSONArray list  = response.getJSONArray("list");
+                            for(int i=0; i<5; i++)
+                            {
+                                JSONObject obj            = list.getJSONObject(i);
+                                JSONObject main           = obj.getJSONObject("main");
+                                Double currentTemp        = main.getDouble("temp");
+                                Double maxTemp            = main.getDouble("temp_max");
+                                Double minTemp            = main.getDouble("temp_min");
+                                //Log.v("Fun", "currentTemp" + currentTemp);
+                                JSONArray weatherArr      = obj.getJSONArray("weather");
+                                JSONObject weather        = weatherArr.getJSONObject(0);
+                                String weatherType        = weather.getString("main");
+                                String rawDate            = obj.getString("dt_txt");
+                                DailyWeatherReport report = new DailyWeatherReport(cityName,country,currentTemp.intValue(),maxTemp.intValue(),minTemp.intValue(),weatherType,rawDate);
+                                Log.v("Fun", "printing from class"+report.getWeather());
+                                weatherReportList.add(report);
+
+                            }
+                            Log.v("Fun", "cityName:" + cityName);
+                        }
+                        catch (JSONException e)
+                        {
+                            Log.v("Fun", e.getMessage());
+                        }
                     }
                 }, new Response.ErrorListener() {
 
@@ -129,9 +171,9 @@ implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.Connecti
 
         //AccessFineLocation is found in the manfest
         // if the user hasn't given permission then this will ask
-        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
         {
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_FINE_LOCATION);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_FINE_LOCATION);
             Log.v("Fun", "Requesting permissions");
         }
         else //permission already given
@@ -188,4 +230,39 @@ implements  GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.Connecti
         }
     }
 
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    public Action getIndexApiAction() {
+        Thing object = new Thing.Builder()
+                .setName("Weather Page") // TODO: Define a title for the content shown.
+                // TODO: Make sure this auto-generated URL is correct.
+                .setUrl(Uri.parse("http://[ENTER-YOUR-URL-HERE]"))
+                .build();
+        return new Action.Builder(Action.TYPE_VIEW)
+                .setObject(object)
+                .setActionStatus(Action.STATUS_TYPE_COMPLETED)
+                .build();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        mGoogleApiClient.connect();
+        AppIndex.AppIndexApi.start(mGoogleApiClient, getIndexApiAction());
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        AppIndex.AppIndexApi.end(mGoogleApiClient, getIndexApiAction());
+        mGoogleApiClient.disconnect();
+    }
 }
